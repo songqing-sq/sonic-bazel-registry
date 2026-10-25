@@ -1,0 +1,24 @@
+{
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "consumer_deps": [
+    {
+      "name": "sonic-build-infra",
+      "version": "0.0.20-f2e60d38b3bf125b2984bc0f2114999490d51aed",
+      "repo_name": "sonic_build_infra"
+    }
+  ],
+  "platforms": {
+    "amd64": "@sonic_build_infra//platforms:x86_64_bookworm",
+    "arm64": "@sonic_build_infra//platforms:aarch64_bookworm"
+  },
+  "build_targets": [
+    "@net-snmp//:debs"
+  ],
+  "test_targets": [
+    "@net-snmp//:native_contract_test"
+  ],
+  "generated_module_overlay": true
+}
