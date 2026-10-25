@@ -1,0 +1,20 @@
+{
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "consumer_deps": [],
+  "platforms": {
+    "amd64": "@sonic-build-infra//platforms:x86_64_trixie",
+    "arm64": "@sonic-build-infra//platforms:aarch64_trixie"
+  },
+  "build_targets": [
+    "@sonic-build-infra//tests:hello"
+  ],
+  "test_targets": [
+    "@sonic-build-infra//tools/build_tools:prepare_rootfs_test",
+    "@sonic-build-infra//deb:prepare_control_test",
+    "@sonic-build-infra//deb:shlibdeps_test",
+    "@sonic-build-infra//tools/build_tools:foreign_runtime_test"
+  ]
+}

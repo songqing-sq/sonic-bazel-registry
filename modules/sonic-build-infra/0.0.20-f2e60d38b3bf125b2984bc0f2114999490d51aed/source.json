@@ -1,0 +1,9 @@
+{
+  "url": "https://github.com/songqing-sq/sonic-build-infra-securely1g/archive/f2e60d38b3bf125b2984bc0f2114999490d51aed.tar.gz",
+  "strip_prefix": "sonic-build-infra-securely1g-f2e60d38b3bf125b2984bc0f2114999490d51aed",
+  "integrity": "sha256-JVCmj2moqmliy3fAGhTLTAow25ldbTqoNY54GiNOx/4=",
+  "patches": {
+    "module-version.patch": "sha256-2HImVX7Xw8fN2byntfjWmJtLYDgspOLRmSxljUPSvx0="
+  },
+  "patch_strip": 1
+}
