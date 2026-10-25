@@ -1,0 +1,3 @@
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl-*.la
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl/cli/cls/*.la
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl/cli/qdisc/*.la

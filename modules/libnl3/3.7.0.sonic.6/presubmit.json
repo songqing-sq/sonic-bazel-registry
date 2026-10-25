@@ -1,0 +1,29 @@
+{
+  "generated_module_overlay": true,
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "consumer_deps": [
+    {
+      "name": "sonic-build-infra",
+      "version": "0.0.20-f2e60d38b3bf125b2984bc0f2114999490d51aed",
+      "repo_name": "sonic_build_infra"
+    }
+  ],
+  "platforms": {
+    "amd64": "@sonic_build_infra//platforms:x86_64_trixie",
+    "arm64": "@sonic_build_infra//platforms:aarch64_trixie"
+  },
+  "build_targets": [
+    "@libnl3//:debs",
+    "@libnl3//:all_libraries",
+    "@libnl3//:programs",
+    "@libnl3//:check_programs"
+  ],
+  "test_targets": [
+    "@libnl3//:native_package_test",
+    "@libnl3//:libnl3_package_test",
+    "@libnl3//:libnl3_consumer_test"
+  ]
+}

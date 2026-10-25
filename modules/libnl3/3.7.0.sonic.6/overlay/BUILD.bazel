@@ -1,0 +1,314 @@
+load("@bazel_lib//lib:run_binary.bzl", "run_binary")
+load("@sonic_build_infra//source:source_snapshot.bzl", "source_snapshot")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@sonic_build_infra//cc:runtime_test.bzl", "native_runtime_test")
+load("@sonic_build_infra//testing:exec_test.bzl", "exec_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@sonic_build_infra//deb:sonic_deb.bzl", "sonic_deb")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_gzip//gzip/compress:defs.bzl", "gzip_compress")
+
+[
+    alias(
+        name = name,
+        actual = "@libnl3_src//:" + name,
+        visibility = ["//visibility:public"],
+    )
+    for name in [
+        "libnl_3",
+        "libnl_genl_3",
+        "libnl_route_3",
+        "libnl_nf_3",
+        "libnl_cli_3",
+        "programs",
+        "check_programs",
+        "all_libraries",
+    ]
+]
+
+alias(
+    name = "headers",
+    actual = "@libnl3_src//:public_headers",
+    visibility = ["//visibility:public"],
+)
+
+[
+    alias(
+        name = stem + suffix,
+        actual = "@libnl3_src//:" + stem + suffix,
+        visibility = ["//visibility:public"],
+    )
+    for stem in [
+        "libnl-3",
+        "libnl-genl-3",
+        "libnl-route-3",
+        "libnl-nf-3",
+        "libnl-cli-3",
+    ]
+    for suffix in [
+        "_pkg",
+        "-dev_pkg",
+        "_pkg.debug_symbols",
+        "-runtime_files",
+        "-runtime_files.debug_symbols",
+    ]
+]
+
+[
+    alias(
+        name = stem + "-dev_files",
+        actual = "@libnl3_src//:" + stem + "-dev_files",
+        visibility = ["//visibility:public"],
+    )
+    for stem in [
+        "libnl-3",
+        "libnl-route-3",
+    ]
+]
+
+cc_binary(
+    name = "consumer_binary",
+    srcs = ["libnl3_consumer_test.c"],
+    dynamic_deps = [
+        "@libnl3_src//:libnl_3_shared",
+        "@libnl3_src//:libnl_route_3_shared",
+    ],
+    linkopts = ["-ldl"],
+    deps = [
+        ":libnl_3",
+        ":libnl_route_3",
+    ],
+)
+
+native_runtime_test(
+    name = "libnl3_consumer_test",
+    binary = ":consumer_binary",
+    runtime_payloads = [
+        ":target_libc_data",
+        ":libnl-3-runtime_files",
+        ":libnl-route-3-runtime_files",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(name = "package_symbols_tool", srcs = ["package_symbols.py"], main = "package_symbols.py", deps = ["@sonic_build_infra//deb:elf_metadata"])
+gzip_compress(name = "debian_changelog", src = "debian/changelog", level = 9)
+gzip_compress(name = "upstream_changelog", src = "@libnl3_src//:ChangeLog", level = 9)
+
+# Debian's five library families, each with runtime, development and symbols.
+FAMILIES = {
+    "libnl-3": ("core", "libnl3_pc_generated"),
+    "libnl-genl-3": ("libnl_genl_3", "libnl3_genl_pc_generated"),
+    "libnl-route-3": ("route", "libnl3_route_pc_generated"),
+    "libnl-nf-3": ("libnl_nf_3", "libnl3_nf_pc_generated"),
+    "libnl-cli-3": ("libnl_cli_3", "libnl3_cli_pc_generated"),
+}
+ARCHITECTURES = [("x86_64", "amd64", "x86_64-linux-gnu"), ("arm64", "arm64", "aarch64-linux-gnu")]
+PACKAGE_KINDS = ["-200", "-dev", "-200-dbgsym"]
+CLI_PLUGINS = ["cls/basic", "cls/cgroup", "qdisc/bfifo", "qdisc/blackhole", "qdisc/fq_codel", "qdisc/hfsc", "qdisc/htb", "qdisc/ingress", "qdisc/pfifo", "qdisc/plug"]
+
+write_file(
+    name = "internal_shlibs",
+    out = "internal.shlibs",
+    content = [stem + " 200 " + stem + "-200 (>= 3.7.0)" for stem in FAMILIES] + [""],
+)
+
+[
+    write_file(name = stem + "_shlibs", out = "metadata/" + stem + ".shlibs", content = [stem + " 200 " + stem + "-200 (>= 3.7.0)", ""])
+    for stem in FAMILIES
+]
+write_file(name = "triggers", out = "metadata/triggers", content = ["activate-noawait ldconfig", ""])
+write_file(name = "conffiles", out = "metadata/conffiles", content = ["/etc/libnl-3/classid", "/etc/libnl-3/pktloc", ""])
+
+[
+    run_binary(
+        name = stem + "_symbols",
+        tool = ":package_symbols_tool",
+        srcs = ["@libnl3_src//:" + stem + "-runtime_files", "debian/" + stem + "-200.symbols"],
+        outs = ["metadata/" + stem + ".symbols"],
+        args = ["--archive", "$(execpath @libnl3_src//:" + stem + "-runtime_files)", "--reference", "$(execpath debian/" + stem + "-200.symbols)", "--stem", stem, "--package", stem + "-200", "--version", "3.7.0-0.2+b1sonic1", "--output", "$(RULEDIR)/metadata/" + stem + ".symbols"],
+    )
+    for stem in FAMILIES
+]
+
+[
+    pkg_tar(
+        name = stem + kind + "_documentation",
+        files = {} if kind == "-200-dbgsym" else {
+            "debian/copyright": "usr/share/doc/" + stem + kind + "/copyright",
+            ":debian_changelog": "usr/share/doc/" + stem + kind + "/changelog.Debian.gz",
+            ":upstream_changelog": "usr/share/doc/" + stem + kind + "/changelog.gz",
+        },
+        symlinks = {"usr/share/doc/" + stem + kind: stem + "-200"} if kind == "-200-dbgsym" else {},
+        modes = {"usr/share/doc/" + stem + kind: "0777"} if kind == "-200-dbgsym" else {},
+        mode = "0644",
+        mtime = 0,
+        portable_mtime = False,
+    )
+    for stem in FAMILIES
+    for kind in PACKAGE_KINDS
+]
+
+[
+    pkg_tar(
+        name = stem + kind + "_stage_" + architecture,
+        deps = [":" + stem + kind + "_documentation"] + (
+            ["@libnl3_src//:" + stem + "-debian-runtime_files_" + cpu] if kind == "-200" and stem in ["libnl-3", "libnl-genl-3"] else
+            ["@libnl3_src//:" + stem + "-runtime_files"] if kind == "-200" else
+            ["@libnl3_src//:" + stem + "-runtime_files.debug_symbols"] if kind == "-200-dbgsym" else
+            ["@libnl3_src//:libnl3-dev_headers"] if stem == "libnl-3" else []
+        ),
+        files = ({
+            "@libnl3_src//:" + archive + "_archive": ("lib/" if stem in ["libnl-3", "libnl-genl-3"] else "usr/lib/") + triplet + "/" + stem + ".a",
+            "@libnl3_src//:" + pc: "usr/lib/" + triplet + "/pkgconfig/" + stem + ".0.pc",
+        } | ({"@libnl3_src//:libnl_cli_" + plugin.replace("/", "_") + "_archive": "usr/lib/" + triplet + "/libnl/cli/" + plugin + ".a" for plugin in CLI_PLUGINS} if stem == "libnl-cli-3" else {}) if kind == "-dev" else {"debian/README.Debian": "usr/share/doc/libnl-3-200/README.Debian"} if stem == "libnl-3" and kind == "-200" else {}),
+        symlinks = {("lib/" if stem in ["libnl-3", "libnl-genl-3"] else "usr/lib/") + triplet + "/" + stem + ".so": stem + ".so.200"} if kind == "-dev" else {},
+        modes = {("lib/" if stem in ["libnl-3", "libnl-genl-3"] else "usr/lib/") + triplet + "/" + stem + ".so": "0777"} if kind == "-dev" else {},
+        mode = "0644",
+        mtime = 0,
+        portable_mtime = False,
+        target_compatible_with = ["@platforms//cpu:" + cpu],
+    )
+    for cpu, architecture, triplet in ARCHITECTURES
+    for stem, (archive, pc) in FAMILIES.items()
+    for kind in PACKAGE_KINDS
+]
+
+[
+    run_binary(
+    name = stem + "-200_depends_" + architecture,
+    tool = "@sonic_build_infra//deb:shlibdeps",
+    srcs = [":" + stem + "-200_stage_" + architecture] + ["//:target_libc_data"] + ["//:target_libc_control"] + [":internal_shlibs"],
+    outs = [stem + "-200_depends_" + architecture + ".depends"],
+    args = ["--data", "$(execpath %s)" % (":" + stem + "-200_stage_" + architecture), "--output", "$(RULEDIR)/" + stem + "-200_depends_" + architecture + ".depends", "--architecture"] + [architecture] + [
+        argument for data, control in zip(["//:target_libc_data"], ["//:target_libc_control"])
+        for argument in ["--metadata", "$(execpath %s)" % data, "$(execpath %s)" % control]
+    ] + [argument for shlibs in [":internal_shlibs"] for argument in ["--shlibs", "$(execpath %s)" % shlibs]],
+    target_compatible_with = ["@platforms//cpu:" + cpu],
+)
+    for cpu, architecture, triplet in ARCHITECTURES
+    for stem in FAMILIES
+]
+
+_DEBIAN_FIELDS = {'libnl-3-200': {'Package': 'libnl-3-200', 'Section': 'libs', 'Depends': [], 'Multi-Arch': 'same', 'Description': 'library for dealing with netlink sockets \n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.'}, 'libnl-cli-3-200': {'Package': 'libnl-cli-3-200', 'Section': 'libs', 'Depends': ['libnl-3-200 (= 3.7.0-0.2+b1sonic1)', 'libnl-genl-3-200 (= 3.7.0-0.2+b1sonic1)', 'libnl-nf-3-200 (= 3.7.0-0.2+b1sonic1)', 'libnl-route-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'library for dealing with netlink sockets - cli helpers\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n Library for cli helpers in libnl-utils.'}, 'libnl-genl-3-200': {'Package': 'libnl-genl-3-200', 'Section': 'libs', 'Depends': ['libnl-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'library for dealing with netlink sockets - generic netlink\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n API to the generic netlink protocol, an extended version of the netlink\n protocol.'}, 'libnl-nf-3-200': {'Package': 'libnl-nf-3-200', 'Section': 'libs', 'Depends': ['libnl-3-200 (= 3.7.0-0.2+b1sonic1)', 'libnl-route-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'library for dealing with netlink sockets - netfilter interface\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n API to netlink based netfilter configuration and monitoring interfaces.'}, 'libnl-route-3-200': {'Package': 'libnl-route-3-200', 'Section': 'libs', 'Depends': ['libnl-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'library for dealing with netlink sockets - route interface\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n API to the configuration interfaces of the NETLINK_ROUTE family.'}, 'libnl-3-dev': {'Package': 'libnl-3-dev', 'Section': 'libdevel', 'Depends': ['libnl-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Conflicts': 'libnl-dev, libnl2-dev', 'Breaks': 'libnl3-dev', 'Replaces': 'libnl3-dev', 'Multi-Arch': 'same', 'Description': 'development library and headers for libnl-3\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n This package contains the headers needed by all libraries and the  files\n that are needed to build applications using libnl3.'}, 'libnl-cli-3-dev': {'Package': 'libnl-cli-3-dev', 'Section': 'libdevel', 'Depends': ['libnl-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-genl-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-nf-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-route-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-cli-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'development library and headers for libnl-cli-3\n This is a library for applications dealing with netlink sockets. \n The library provides an interface for raw netlink messaging and various \n netlink family specific interfaces.\n .\n This package contains the files that are needed to build applications using\n libnl-cli-3.'}, 'libnl-genl-3-dev': {'Package': 'libnl-genl-3-dev', 'Section': 'libdevel', 'Depends': ['libnl-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-genl-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'development library and headers for libnl-genl-3\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n This package contains the files that are needed to build applications using\n libnl-genl-3.'}, 'libnl-nf-3-dev': {'Package': 'libnl-nf-3-dev', 'Section': 'libdevel', 'Depends': ['libnl-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-route-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-nf-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'development library and headers for libnl-nf-3\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n This package contains the files that are needed to build applications using\n libnl-nf-3.'}, 'libnl-route-3-dev': {'Package': 'libnl-route-3-dev', 'Section': 'libdevel', 'Depends': ['libnl-3-dev (= 3.7.0-0.2+b1sonic1)', 'libnl-route-3-200 (= 3.7.0-0.2+b1sonic1)'], 'Multi-Arch': 'same', 'Description': 'development library and headers for libnl-route-3\n This is a library for applications dealing with netlink sockets.\n The library provides an interface for raw netlink messaging and various\n netlink family specific interfaces.\n .\n This package contains the files that are needed to build applications using\n libnl-route-3.'}}
+
+[
+    sonic_deb(
+        name = stem + kind + "_deb_" + architecture,
+        package = stem + kind,
+        version = "3.7.0-0.2+b1sonic1",
+        maintainer = "Heiko Stuebner <mmind@debian.org>",
+        description = "debug symbols for " + stem + "-200" if kind == "-200-dbgsym" else _DEBIAN_FIELDS[stem + kind]["Description"],
+        depends = [stem + "-200 (= 3.7.0-0.2+b1sonic1)"] if kind == "-200-dbgsym" else _DEBIAN_FIELDS[stem + kind]["Depends"],
+        control_fields = {"Source": "libnl3", "Priority": "optional", "Multi-Arch": "same"} | ({"Section": "debug", "Auto-Built-Package": "debug-symbols"} if kind == "-200-dbgsym" else {"Homepage": "http://www.infradead.org/~tgr/libnl/"} | {key: value for key, value in _DEBIAN_FIELDS[stem + kind].items() if key not in ["Package", "Description", "Depends"]}),
+        data = ":" + stem + kind + "_stage_" + architecture,
+        control_files = ({"shlibs": ":" + stem + "_shlibs", "triggers": ":triggers", "symbols": ":" + stem + "_symbols"} | ({"conffiles": ":conffiles"} if stem == "libnl-3" else {})) if kind == "-200" else {},
+        depends_file = ":" + stem + "-200_depends_" + architecture if kind == "-200" else None,
+        generate_build_ids = kind == "-200-dbgsym",
+        generate_installed_size = True,
+        target_compatible_with = ["@platforms//cpu:" + cpu],
+    )
+    for cpu, architecture, triplet in ARCHITECTURES
+    for stem in FAMILIES
+    for kind in PACKAGE_KINDS
+]
+
+[
+    alias(
+        name = stem + kind + "_deb",
+        actual = select({"@platforms//cpu:" + cpu: ":" + stem + kind + "_deb_" + architecture for cpu, architecture, triplet in ARCHITECTURES}),
+        visibility = ["//visibility:public"],
+    )
+    for stem in FAMILIES
+    for kind in PACKAGE_KINDS
+]
+
+filegroup(
+    name = "debs",
+    srcs = [":" + stem + kind + "_deb" for stem in FAMILIES for kind in PACKAGE_KINDS],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "package_test_runner",
+    srcs = ["package_test.py"],
+    main = "package_test.py",
+    deps = ["@sonic_build_infra//deb:elf_metadata"],
+)
+
+exec_test(
+    name = "native_package_test",
+    srcs = [":debs"],
+    runner = ":package_test_runner",
+    data = [":target_libc_control"],
+    checker_args = ["--suite"] + select({
+        "@sonic_build_infra//platforms:bookworm": ["bookworm"],
+        "//conditions:default": ["trixie"],
+    }) + ["--libc-control", "$(location :target_libc_control)"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "tar_contract_runner",
+    srcs = ["tar_contract_test.py"],
+    main = "tar_contract_test.py",
+    deps = ["@sonic_build_infra//deb:elf_metadata"],
+)
+
+filegroup(
+    name = "raw_tars",
+    srcs = [":" + stem + suffix for stem in [
+        "libnl-3",
+        "libnl-genl-3",
+        "libnl-route-3",
+        "libnl-nf-3",
+        "libnl-cli-3",
+    ] for suffix in [
+        "_pkg",
+        "-dev_pkg",
+        "_pkg.debug_symbols",
+    ]] + [
+        ":libnl-3-dev_files",
+        ":libnl-route-3-dev_files",
+    ],
+)
+
+exec_test(
+    name = "libnl3_package_test",
+    srcs = [":raw_tars"],
+    runner = ":tar_contract_runner",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "libnl3_dev_files_test",
+    actual = ":libnl3_package_test",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "target_libc_data",
+    actual = select({
+        "@sonic_build_infra//platforms:bookworm": "@libnl_bookworm_system//libc6:data",
+        "//conditions:default": "@libnl_system//libc6:data",
+    }),
+)
+
+alias(
+    name = "target_libc_control",
+    actual = select({
+        "@sonic_build_infra//platforms:bookworm": "@libnl_bookworm_system//libc6:control",
+        "//conditions:default": "@libnl_system//libc6:control",
+    }),
+)
+
+filegroup(name = "pkgconfig", srcs = ["@libnl3_src//:" + name for name in ["libnl3_pc_generated", "libnl3_genl_pc_generated", "libnl3_route_pc_generated", "libnl3_nf_pc_generated", "libnl3_cli_pc_generated"]], visibility = ["//visibility:public"])
+
+[alias(name = name + "_shared", actual = "@libnl3_src//:" + name + "_shared", visibility = ["//visibility:public"]) for name in ["libnl_3", "libnl_genl_3", "libnl_route_3", "libnl_nf_3", "libnl_cli_3"]]
+
+source_snapshot(
+    name = "source_snapshot",
+    srcs = glob(["debian/**"]),
+    archives = {"@libnl3_src//:source_snapshot": ""},
+)

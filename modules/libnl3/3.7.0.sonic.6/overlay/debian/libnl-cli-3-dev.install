@@ -1,0 +1,5 @@
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig/libnl-cli-3*
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl-cli-3*.so
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl-cli-3*.a
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl/cli/cls/*.a
+debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/libnl/cli/qdisc/*.a
