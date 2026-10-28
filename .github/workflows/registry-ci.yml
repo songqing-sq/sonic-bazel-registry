@@ -3,7 +3,7 @@ name: Registry CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "ci/pr147-sonic13-20261028"]
   workflow_dispatch:
     inputs:
       all_versions:
@@ -44,7 +44,7 @@ jobs:
         run: |
           set -euo pipefail
           POLICY_FLAGS=()
-          if [[ "$EVENT_NAME" == push ]]; then
+          if [[ "$EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
             # main already contains this push. Comparing with current main
             # would silently bless edits/deletions of published entries.
             PUBLISHED_SHA="$BEFORE_SHA"
