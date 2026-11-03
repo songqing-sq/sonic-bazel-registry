@@ -6,7 +6,15 @@
   "consumer_deps": [
     {
       "name": "tar.bzl",
-      "version": "0.10.5-sonic.1"
+      "version": "0.10.5.sonic.2"
+    },
+    {
+      "name": "rules_python",
+      "version": "1.9.0.sonic.1"
+    },
+    {
+      "name": "rules_cc",
+      "version": "0.2.20"
     }
   ],
   "platforms": {
@@ -46,6 +54,12 @@
     "@sonic-build-infra//deps/compiler:alternatives_pkg",
     "@sonic-build-infra//deps/automake:alternatives_pkg",
     "@sonic-build-infra//deps/openmpi:alternatives_pkg",
+    "@sonic-build-infra//tools/build_tools:tclsh",
+    "@sonic-build-infra//tools/build_tools:gzip",
+    "@sonic-build-infra//tools/build_tools:grep",
+    "@sonic-build-infra//tools/build_tools:gdb",
+    "@sonic-build-infra//tools/build_tools:gdb_runtime",
+    "@sonic-build-infra//tools/autoconf:launcher_fixture",
     "@sonic-build-infra//go:lock.py"
   ],
   "test_targets": [
@@ -75,7 +89,42 @@
     "@sonic-build-infra//tools/build_tools:runtime_launcher_test",
     "@sonic-build-infra//registry_ci:kernel_arm64_tools_test",
     "@sonic-build-infra//registry_ci:kernel_armhf_tools_test",
-    "@sonic-build-infra//deps:alternatives_test"
+    "@sonic-build-infra//deps:alternatives_test",
+    "@sonic-build-infra//tests:host_patchelf_test",
+    "@sonic-build-infra//tests:source_host_tools_test",
+    "@sonic-build-infra//tools/build_tools:tcl_runtime_test",
+    "@sonic-build-infra//docs:doxygen_test",
+    "@sonic-build-infra//python/tests:source_package_builder_test",
+    "@sonic-build-infra//python/tests:site_packages_test",
+    "@sonic-build-infra//tools/autoconf:launcher_test",
+    "@sonic-build-infra//tools/autoconf:argv_paths_test",
+    "@sonic-build-infra//tools/autoconf/tests:declared_tools_test",
+    "@sonic-build-infra//tools/autoconf/tests:relocatable_pkgconfig_test",
+    "@sonic-build-infra//tools/build_tools:gdb_runtime_test",
+    "@sonic-build-infra//cc/tests/toolchain_variant:library_provider_test",
+    "@sonic-build-infra//cc/tests/toolchain_variant:shared_provider_test",
+    "@sonic-build-infra//cc/tests/toolchain_variant:symbols_provider_test",
+    "@sonic-build-infra//cc/tests/toolchain_variant:binary_runfiles_test",
+    "@sonic-build-infra//cc/tests/toolchain_variant:imported_shared_consumer_test",
+    "@sonic-build-infra//tests:hello_rpath_preservation_test",
+    "@sonic-build-infra//tests:hello_runpath_preservation_test",
+    "@sonic-build-infra//tests:hello_static_preservation_test",
+    "@sonic-build-infra//tests:hello_rpath_exact_deployment_test",
+    "@sonic-build-infra//tests:hello_runpath_exact_deployment_test",
+    "@sonic-build-infra//tests:source_python_embed_test",
+    "@sonic-build-infra//tests:debug_compression_test",
+    "@sonic-build-infra//tools/autoconf:probe_runner_test",
+    "@sonic-build-infra//tools/autoconf:linker_response_test",
+    "@sonic-build-infra//oci/tests:runtime_control_files_rule_test",
+    "@sonic-build-infra//tests/pkgconfig:mixed_first_test",
+    "@sonic-build-infra//tests/pkgconfig:mixed_second_test",
+    "@sonic-build-infra//tests/pkgconfig:unsupported_includes_test",
+    "@sonic-build-infra//tests/pkgconfig:repeated_dynamic_test",
+    "@sonic-build-infra//tests:hello_rpath_installation_test",
+    "@sonic-build-infra//tests:hello_runpath_installation_test",
+    "@sonic-build-infra//tests:installation_rpath_tar_test",
+    "@sonic-build-infra//tar:root_owned_tar_test",
+    "@sonic-build-infra//tar:debug_symbols_modes_test"
   ],
   "host_platforms": {
     "amd64": "@sonic-build-infra//platforms:x86_64_trixie",
