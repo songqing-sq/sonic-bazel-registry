@@ -50,3 +50,8 @@ patches 0002–0018 are inherited byte-for-byte. Patch 0001 changes only this
 candidate's module version and 0019 adds the target header selection and its
 lazy test repository. All existing fixtures and test selections are retained.
 See [patch provenance](PATCHES.md).
+
+
+## Unified APT source and lock interfaces
+
+Patch 0020 adds shared source/request inputs and reviewed lock imports, static-library and linker-script inputs, original archive aliases, declared AWK execution and relocatable exported pkg-config files. The package payload archives retain their original bytes. This candidate preserves patches 0002–0019 from registry PR #200 byte-for-byte, including target-CPU header selection, and retains all 35 test targets before adding the pkg-config relocation regression. The two sample package-lock tests remain in the standalone integration module. The declared AWK tool requires the gawk candidate registration.
